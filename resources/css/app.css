@@ -1,0 +1,412 @@
+@import 'tailwindcss';
+@import 'highlight.js/styles/github-dark.css';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../views/**/*.blade.php';
+
+@theme {
+    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+}
+
+/* Tailwind v4 dark: variant driven by <meta name="color-scheme"> override or OS preference */
+@custom-variant dark {
+    &:where(:root:has(> head > meta[name="color-scheme"][content="dark"]) *) {
+        @slot;
+    }
+    @media (prefers-color-scheme: dark) {
+        &:where(:root:not(:has(> head > meta[name="color-scheme"][content="light"])) *) {
+            @slot;
+        }
+    }
+}
+
+/* Color scheme mapping & semantic light/dark design tokens */
+:root {
+    --dd-accent-light: #4f46e5;
+    --dd-accent-dark: #818cf8;
+    --dd-accent: var(--dd-accent-light);
+
+    --dd-scrollbar-track: transparent;
+    --dd-scrollbar-thumb-light: #cbd5e1;
+    --dd-scrollbar-thumb-dark: #334155;
+    --dd-scrollbar-thumb: var(--dd-scrollbar-thumb-light);
+
+    --dd-md-text: #1e293b;
+    --dd-md-heading: #0f172a;
+    --dd-md-border: #e2e8f0;
+    --dd-md-border-soft: #f1f5f9;
+    --dd-md-th-bg: #f8fafc;
+    --dd-md-th-border: #cbd5e1;
+    --dd-md-th-text: #334155;
+    --dd-md-tr-alt: #f8fafc;
+    --dd-md-quote-bg: #f8fafc;
+    --dd-md-quote-text: #475569;
+    --dd-md-quote-border: #6366f1;
+    --dd-md-inline-bg: #f1f5f9;
+    --dd-md-inline-text: #e11d48;
+    --dd-mermaid-bg: #ffffff;
+    --dd-mermaid-border: #e2e8f0;
+    --dd-mermaid-err-bg: #fef2f2;
+    --dd-mermaid-err-border: #fecaca;
+    --dd-mermaid-err-text: #dc2626;
+
+    @media (prefers-color-scheme: dark) {
+        --dd-accent: var(--dd-accent-dark);
+        --dd-scrollbar-thumb: var(--dd-scrollbar-thumb-dark);
+        --dd-md-text: #cbd5e1;
+        --dd-md-heading: #f1f5f9;
+        --dd-md-border: #1e293b;
+        --dd-md-border-soft: #1e293b;
+        --dd-md-th-bg: #1e293b;
+        --dd-md-th-border: #334155;
+        --dd-md-th-text: #e2e8f0;
+        --dd-md-tr-alt: #0f172a;
+        --dd-md-quote-bg: #111827;
+        --dd-md-quote-text: #94a3b8;
+        --dd-md-quote-border: #818cf8;
+        --dd-md-inline-bg: #1e293b;
+        --dd-md-inline-text: #fda4af;
+        --dd-mermaid-bg: #111827;
+        --dd-mermaid-border: #1e293b;
+        --dd-mermaid-err-bg: rgba(127, 29, 29, 0.25);
+        --dd-mermaid-err-border: rgba(248, 113, 113, 0.35);
+        --dd-mermaid-err-text: #fca5a5;
+    }
+
+    @supports (color: light-dark(white, black)) {
+        --dd-accent: light-dark(var(--dd-accent-light), var(--dd-accent-dark));
+        --dd-scrollbar-thumb: light-dark(var(--dd-scrollbar-thumb-light), var(--dd-scrollbar-thumb-dark));
+        --dd-md-text: light-dark(#1e293b, #cbd5e1);
+        --dd-md-heading: light-dark(#0f172a, #f1f5f9);
+        --dd-md-border: light-dark(#e2e8f0, #1e293b);
+        --dd-md-border-soft: light-dark(#f1f5f9, #1e293b);
+        --dd-md-th-bg: light-dark(#f8fafc, #1e293b);
+        --dd-md-th-border: light-dark(#cbd5e1, #334155);
+        --dd-md-th-text: light-dark(#334155, #e2e8f0);
+        --dd-md-tr-alt: light-dark(#f8fafc, #0f172a);
+        --dd-md-quote-bg: light-dark(#f8fafc, #111827);
+        --dd-md-quote-text: light-dark(#475569, #94a3b8);
+        --dd-md-quote-border: light-dark(#6366f1, #818cf8);
+        --dd-md-inline-bg: light-dark(#f1f5f9, #1e293b);
+        --dd-md-inline-text: light-dark(#e11d48, #fda4af);
+        --dd-mermaid-bg: light-dark(#ffffff, #111827);
+        --dd-mermaid-border: light-dark(#e2e8f0, #1e293b);
+        --dd-mermaid-err-bg: light-dark(#fef2f2, rgba(127, 29, 29, 0.25));
+        --dd-mermaid-err-border: light-dark(#fecaca, rgba(248, 113, 113, 0.35));
+        --dd-mermaid-err-text: light-dark(#dc2626, #fca5a5);
+    }
+
+    color-scheme: light dark;
+    accent-color: var(--dd-accent);
+
+    &:has(> head > meta[name="color-scheme"][content="dark"]) {
+        color-scheme: dark;
+    }
+
+    &:has(> head > meta[name="color-scheme"][content="light"]) {
+        color-scheme: light;
+    }
+}
+
+/* Theme toggle icon visibility without JS flicker */
+.theme-icon-sun {
+    display: none;
+}
+
+.theme-icon-moon {
+    display: inline-flex;
+}
+
+:root:has(> head > meta[name="color-scheme"][content="dark"]) .theme-icon-sun {
+    display: inline-flex;
+}
+
+:root:has(> head > meta[name="color-scheme"][content="dark"]) .theme-icon-moon {
+    display: none;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:not(:has(> head > meta[name="color-scheme"][content="light"])) .theme-icon-sun {
+        display: inline-flex;
+    }
+
+    :root:not(:has(> head > meta[name="color-scheme"][content="light"])) .theme-icon-moon {
+        display: none;
+    }
+}
+
+/* Ensure all buttons have pointer cursor by default across the application */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+}
+
+/* Custom Markdown Content Styling (DevDocs Reader & Preview) */
+.markdown-body {
+    color: var(--dd-md-text);
+    font-size: 1rem;
+    line-height: 1.75;
+}
+
+.markdown-body h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-top: 1.5rem;
+    margin-bottom: 1rem;
+    color: var(--dd-md-heading);
+    border-bottom: 1px solid var(--dd-md-border);
+    padding-bottom: 0.5rem;
+}
+
+.markdown-body h2 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-top: 1.75rem;
+    margin-bottom: 0.75rem;
+    color: var(--dd-md-heading);
+    border-bottom: 1px solid var(--dd-md-border-soft);
+    padding-bottom: 0.35rem;
+}
+
+.markdown-body h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-top: 1.25rem;
+    margin-bottom: 0.5rem;
+    color: var(--dd-md-heading);
+}
+
+.markdown-body p {
+    margin-bottom: 1rem;
+}
+
+.markdown-body ul {
+    list-style-type: disc;
+    padding-left: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.markdown-body ol {
+    list-style-type: decimal;
+    padding-left: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.markdown-body li {
+    margin-bottom: 0.25rem;
+}
+
+.markdown-body table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+    margin-bottom: 1.5rem;
+    font-size: 0.875rem;
+}
+
+.markdown-body th {
+    background-color: var(--dd-md-th-bg);
+    border: 1px solid var(--dd-md-th-border);
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+    font-weight: 600;
+    color: var(--dd-md-th-text);
+}
+
+.markdown-body td {
+    border: 1px solid var(--dd-md-border);
+    padding: 0.5rem 0.75rem;
+}
+
+.markdown-body tr:nth-child(even) {
+    background-color: var(--dd-md-tr-alt);
+}
+
+.markdown-body blockquote {
+    border-left: 4px solid var(--dd-md-quote-border);
+    background-color: var(--dd-md-quote-bg);
+    padding: 0.75rem 1rem;
+    margin: 1rem 0;
+    border-radius: 0 0.375rem 0.375rem 0;
+    color: var(--dd-md-quote-text);
+}
+
+.markdown-body code:not(pre code) {
+    background-color: var(--dd-md-inline-bg);
+    color: var(--dd-md-inline-text);
+    padding: 0.15rem 0.35rem;
+    border-radius: 0.25rem;
+    font-size: 0.875em;
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.markdown-body pre {
+    background-color: #0d1117;
+    color-scheme: dark;
+    accent-color: var(--dd-accent);
+    border: 1px solid var(--dd-md-border);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    overflow-x: auto;
+    margin: 1.25rem 0;
+    position: relative;
+}
+
+.markdown-body pre code {
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.875rem;
+    line-height: 1.5;
+}
+
+/* Mermaid Container */
+.mermaid-container {
+    background: var(--dd-mermaid-bg);
+    border: 1px solid var(--dd-mermaid-border);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    margin: 1.5rem 0;
+    display: flex;
+    justify-content: center;
+    overflow-x: auto;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.mermaid-error {
+    background: var(--dd-mermaid-err-bg);
+    border: 1px solid var(--dd-mermaid-err-border);
+    color: var(--dd-mermaid-err-text);
+    padding: 1rem;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    margin: 1rem 0;
+}
+
+/* Independent Pane Scrolling & Scroll Containment (DevDocs Editor & Reader) */
+#markdown-editor,
+#preview-pane,
+#doc-reader-main,
+.dd-scroller {
+    overflow-y: auto !important;
+    overscroll-behavior-y: contain !important;
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+    scrollbar-color: var(--dd-scrollbar-thumb) var(--dd-scrollbar-track);
+}
+
+@supports not (scrollbar-color: auto) {
+    #markdown-editor,
+    #preview-pane,
+    #doc-reader-main,
+    .dd-scroller {
+        scrollbar-width: auto;
+    }
+
+    #markdown-editor::-webkit-scrollbar,
+    #preview-pane::-webkit-scrollbar,
+    #doc-reader-main::-webkit-scrollbar,
+    .dd-scroller::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+
+    #markdown-editor::-webkit-scrollbar-track,
+    #preview-pane::-webkit-scrollbar-track,
+    #doc-reader-main::-webkit-scrollbar-track,
+    .dd-scroller::-webkit-scrollbar-track {
+        background: var(--dd-scrollbar-track);
+    }
+
+    #markdown-editor::-webkit-scrollbar-thumb,
+    #preview-pane::-webkit-scrollbar-thumb,
+    #doc-reader-main::-webkit-scrollbar-thumb,
+    .dd-scroller::-webkit-scrollbar-thumb {
+        background-color: var(--dd-scrollbar-thumb);
+        border-radius: 9999px;
+    }
+}
+
+/* Code Block Wrapper & Pinned Copy Button */
+.code-block-wrapper {
+    position: relative;
+    margin: 1.25rem 0;
+}
+
+.code-block-wrapper pre {
+    margin: 0 !important;
+    padding-right: 5rem !important;
+}
+
+.code-copy-btn {
+    transition: all 0.15s ease-in-out;
+}
+
+/* Print Media Styling for Crisp PDF Output */
+@media print {
+    /* Enforce exact background graphics and colors */
+    *,
+    *::before,
+    *::after {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    /* Hide UI controls and copy buttons */
+    .no-print,
+    .code-copy-btn,
+    button.code-copy-btn {
+        display: none !important;
+        visibility: hidden !important;
+    }
+
+    /* Code block styling in printed documents */
+    .code-block-wrapper {
+        margin: 1rem 0 !important;
+    }
+
+    .code-block-wrapper pre,
+    .markdown-body pre {
+        background-color: #0d1117 !important;
+        color: #e6edf3 !important;
+        border: 1px solid #30363d !important;
+        border-radius: 0.625rem !important;
+        padding: 0.875rem 1.25rem !important;
+        padding-right: 1.25rem !important;
+        overflow: visible !important;
+        white-space: pre-wrap !important;
+        word-break: break-word !important;
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+        box-shadow: none !important;
+    }
+
+    .markdown-body pre code {
+        color: #e6edf3 !important;
+        font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+        font-size: 0.8125rem !important;
+        line-height: 1.55 !important;
+        background: transparent !important;
+    }
+
+    /* Highlight.js token colors preserved sharply in print */
+    .hljs-keyword, .hljs-selector-tag, .hljs-built_in { color: #ff7b72 !important; }
+    .hljs-string, .hljs-title, .hljs-section, .hljs-attribute { color: #a5d6ff !important; }
+    .hljs-comment, .hljs-quote { color: #8b949e !important; }
+    .hljs-number, .hljs-literal { color: #79c0ff !important; }
+    .hljs-attr { color: #d2a8ff !important; }
+
+    /* Prevent awkward element breaking across pages */
+    .mermaid-container,
+    .markdown-body table,
+    .markdown-body blockquote,
+    .api-endpoint-card {
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+    }
+
+    h1, h2, h3, h4 {
+        break-after: avoid !important;
+        page-break-after: avoid !important;
+    }
+}
