@@ -45,6 +45,24 @@
             "Composer\\Config::disableProcessTimeout",
             "@php artisan dev"
         ],
+        "env:dev": [
+            "@php -r \"if (file_exists('.env.dev')) { copy('.env.dev', '.env'); echo 'Switched .env to DEV (.env.dev)' . PHP_EOL; } else { copy('.env.example', '.env'); echo 'Switched .env to DEV (.env.example)' . PHP_EOL; }\"",
+            "@php artisan optimize:clear"
+        ],
+        "env:prod": [
+            "@php -r \"if (file_exists('.env.production')) { copy('.env.production', '.env'); echo 'Switched .env to PRODUCTION (.env.production)' . PHP_EOL; } else { copy('.env.production.example', '.env'); echo 'Switched .env to PRODUCTION (.env.production.example) - fill your secrets!' . PHP_EOL; }\"",
+            "@php artisan optimize:clear"
+        ],
+        "build:prod": [
+            "composer install --no-dev --optimize-autoloader",
+            "npm ci",
+            "npm run build",
+            "@php artisan optimize"
+        ],
+        "deploy": [
+            "@php artisan migrate --force",
+            "@php artisan optimize"
+        ],
         "test": [
             "@php artisan config:clear --ansi @no_additional_args",
             "@php artisan test"
