@@ -46,6 +46,45 @@
         </form>
     </div>
 
+    <!-- Public Sharing Settings -->
+    <div class="mt-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-2xs">
+        <div class="flex items-center justify-between gap-4">
+            <div>
+                <h3 class="text-sm font-bold text-slate-900 dark:text-white">Akses Publik (Hanya Lihat)</h3>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    @if ($project->isPubliclyAccessible())
+                        Proyek ini dapat dilihat publik tanpa login melalui link khusus (hanya dokumen Published).
+                    @else
+                        Proyek ini bersifat privat. Aktifkan untuk membuat link publik read-only.
+                    @endif
+                </p>
+            </div>
+            <form action="{{ route('projects.share.toggle', $project->slug) }}" method="POST" class="shrink-0">
+                @csrf
+                <button type="submit" class="px-4 py-2 text-xs font-semibold rounded-xl transition cursor-pointer {{ $project->isPubliclyAccessible() ? 'bg-red-50 dark:bg-red-500/15 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/30 hover:bg-red-100' : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm' }}">
+                    {{ $project->isPubliclyAccessible() ? 'Nonaktifkan Publik' : 'Aktifkan Publik' }}
+                </button>
+            </form>
+        </div>
+
+        @if ($project->isPubliclyAccessible())
+            <div class="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center gap-2">
+                <input type="text" readonly value="{{ $project->publicShareUrl() }}"
+                    class="flex-1 px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-700 dark:text-slate-200 outline-none">
+                <a href="{{ $project->publicShareUrl() }}" target="_blank"
+                    class="px-3.5 py-2 text-xs font-semibold text-center text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/15 hover:bg-indigo-100 dark:hover:bg-indigo-500/25 rounded-xl transition shrink-0">
+                    Buka Link Publik &rarr;
+                </a>
+                <form action="{{ route('projects.share.regenerate', $project->slug) }}" method="POST" onsubmit="return confirm('Reset link publik? Link lama tidak lagi berlaku.')">
+                    @csrf
+                    <button type="submit" class="w-full sm:w-auto px-3.5 py-2 text-xs font-semibold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/15 hover:bg-amber-100 rounded-xl transition cursor-pointer">
+                        Reset Link
+                    </button>
+                </form>
+            </div>
+        @endif
+    </div>
+
     <!-- Danger Zone: Delete Project -->
     <div class="mt-8 bg-white dark:bg-slate-900 border border-red-200 dark:border-red-500/30 rounded-2xl p-6 shadow-2xs">
         <h3 class="text-xs font-bold uppercase tracking-wider text-red-600 dark:text-red-400 mb-1">Zona Bahaya</h3>

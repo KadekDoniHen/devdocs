@@ -15,7 +15,15 @@
             <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-3xl leading-relaxed">{{ $project->description ?? 'Tidak ada deskripsi.' }}</p>
         </div>
 
-        <div class="flex items-center gap-2.5">
+        <div class="flex flex-wrap items-center gap-2.5">
+            <button type="button" onclick="document.getElementById('modal-share-project').classList.remove('hidden')" class="group inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold {{ $project->isPubliclyAccessible() ? 'text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/15 border-emerald-200 dark:border-emerald-500/30 hover:bg-emerald-100 dark:hover:bg-emerald-500/25' : 'text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50/60 dark:hover:bg-slate-800 hover:border-indigo-300 dark:hover:border-indigo-500/50' }} border rounded-xl shadow-2xs hover:shadow-xs active:scale-95 transition-all duration-150 cursor-pointer">
+                @if ($project->isPubliclyAccessible())
+                    <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                @else
+                    <svg class="w-4 h-4 text-slate-500 dark:text-slate-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path></svg>
+                @endif
+                <span>{{ $project->isPubliclyAccessible() ? 'Publik Aktif' : 'Bagikan' }}</span>
+            </button>
             <button type="button" onclick="document.getElementById('modal-add-folder').classList.remove('hidden')" class="group inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-400 bg-white dark:bg-slate-900 hover:bg-indigo-50/60 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-500/50 rounded-xl shadow-2xs hover:shadow-xs active:scale-95 transition-all duration-150 cursor-pointer">
                 <svg class="w-4 h-4 text-slate-500 dark:text-slate-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"></path></svg>
                 <span>+ Folder</span>
@@ -290,10 +298,103 @@
         </div>
     </div>
 
+    {{-- Modal: Bagikan Proyek ke Publik --}}
+    <div id="modal-share-project" class="hidden fixed inset-0 z-50 bg-slate-900/40 dark:bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h3 class="text-base font-bold text-slate-900 dark:text-white">Bagikan Proyek ke Publik</h3>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Pengunjung dapat membaca dokumentasi tanpa login (hanya lihat / read-only).</p>
+                </div>
+                <button type="button" onclick="document.getElementById('modal-share-project').classList.add('hidden')" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+
+            @php
+                $publishedCount = $documents->where('status', 'published')->count();
+            @endphp
+
+            <div class="space-y-4">
+                <div class="flex items-center justify-between p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+                    <div>
+                        <p class="text-xs font-bold text-slate-800 dark:text-slate-100">Status Akses Publik</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                            @if ($project->isPubliclyAccessible())
+                                Aktif &mdash; siapa saja yang memiliki link dapat melihat proyek ini.
+                            @else
+                                Nonaktif &mdash; hanya Anda yang dapat mengakses proyek ini.
+                            @endif
+                        </p>
+                    </div>
+                    <form action="{{ route('projects.share.toggle', $project->slug) }}" method="POST">
+                        @csrf
+                        <button type="submit" class="px-3.5 py-2 text-xs font-semibold rounded-xl transition cursor-pointer {{ $project->isPubliclyAccessible() ? 'bg-red-50 dark:bg-red-500/15 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/30 hover:bg-red-100 dark:hover:bg-red-500/25' : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm' }}">
+                            {{ $project->isPubliclyAccessible() ? 'Nonaktifkan' : 'Aktifkan Publik' }}
+                        </button>
+                    </form>
+                </div>
+
+                @if ($project->isPubliclyAccessible())
+                    <div>
+                        <label for="public-share-url" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Link Publik (Read-Only)</label>
+                        <div class="flex items-center gap-2">
+                            <input type="text" id="public-share-url" readonly value="{{ $project->publicShareUrl() }}"
+                                class="flex-1 px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-700 dark:text-slate-200 outline-none">
+                            <button type="button" onclick="copyPublicShareUrl(this)"
+                                class="px-3.5 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition cursor-pointer shrink-0">
+                                Salin
+                            </button>
+                            <a href="{{ $project->publicShareUrl() }}" target="_blank"
+                                class="px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition shrink-0">
+                                Buka
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800">
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400">
+                            Hanya dokumen <strong>Published</strong> yang tampil ({{ $publishedCount }}/{{ $documents->count() }} dokumen).
+                        </p>
+                        <form action="{{ route('projects.share.regenerate', $project->slug) }}" method="POST" onsubmit="return confirm('Buat link publik baru? Link yang lama tidak akan bisa diakses lagi.')">
+                            @csrf
+                            <button type="submit" class="text-xs font-semibold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer">
+                                Reset Link
+                            </button>
+                        </form>
+                    </div>
+                @else
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400">
+                        Catatan: Hanya dokumen berstatus <strong>Published</strong> yang akan tampil di halaman publik ({{ $publishedCount }}/{{ $documents->count() }} dokumen saat ini berstatus Published).
+                    </p>
+                @endif
+            </div>
+        </div>
+    </div>
+
 </div>
 
 @push('scripts')
 <script>
+    /**
+     * Copy the public share URL to the clipboard.
+     *
+     * @param {HTMLButtonElement} btn
+     */
+    function copyPublicShareUrl(btn) {
+        const input = document.getElementById('public-share-url');
+        if (!input) {
+            return;
+        }
+        navigator.clipboard.writeText(input.value).then(() => {
+            const original = btn.textContent;
+            btn.textContent = 'Tersalin!';
+            setTimeout(() => {
+                btn.textContent = original;
+            }, 1800);
+        });
+    }
+
     /**
      * Open the move-document modal and configure the form action + selected folder.
      *

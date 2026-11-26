@@ -35,13 +35,13 @@
                 @csrf
                 <div>
                     <label for="email" class="block text-xs font-medium text-slate-300 mb-1.5">Alamat Email</label>
-                    <input type="email" name="email" id="email" required autofocus value="{{ old('email', 'admin@devdocs.local') }}"
+                    <input type="email" name="email" id="email" required autofocus autocomplete="email" value="{{ old('email') }}" placeholder="nama@domain.com"
                         class="w-full px-3.5 py-2.5 bg-slate-950/60 border border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl text-sm text-white placeholder-slate-500 outline-none transition">
                 </div>
 
                 <div>
                     <label for="password" class="block text-xs font-medium text-slate-300 mb-1.5">Password</label>
-                    <input type="password" name="password" id="password" required value="password"
+                    <input type="password" name="password" id="password" required autocomplete="current-password" placeholder="••••••••"
                         class="w-full px-3.5 py-2.5 bg-slate-950/60 border border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl text-sm text-white placeholder-slate-500 outline-none transition">
                 </div>
 
@@ -56,12 +56,6 @@
                     Masuk Sekarang &rarr;
                 </button>
             </form>
-
-            <!-- Demo Hint -->
-            <div class="mt-6 pt-5 border-t border-slate-800/80 text-center text-xs text-slate-400">
-                <span class="inline-block px-2 py-0.5 rounded bg-slate-800 text-[11px] text-slate-300 font-mono mb-1">Akun Demo Default</span>
-                <p>Email: <code class="text-indigo-400 font-mono">admin@devdocs.local</code> &bull; Password: <code class="text-indigo-400 font-mono">password</code></p>
-            </div>
         </div>
 
     </div>

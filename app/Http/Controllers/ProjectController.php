@@ -95,6 +95,43 @@ class ProjectController extends Controller
             ->with('success', 'Detail proyek berhasil diperbarui.');
     }
 
+    /**
+     * Enable or disable public read-only sharing for a project.
+     */
+    public function toggleShare(Project $project): RedirectResponse
+    {
+        $willBePublic = ! $project->is_public;
+
+        $updateData = [
+            'is_public' => $willBePublic,
+        ];
+
+        if ($willBePublic && empty($project->share_token)) {
+            $updateData['share_token'] = Project::generateShareToken();
+        }
+
+        $project->update($updateData);
+
+        $message = $willBePublic
+            ? 'Akses publik (hanya lihat) berhasil diaktifkan.'
+            : 'Akses publik berhasil dinonaktifkan. Proyek kini kembali privat.';
+
+        return back()->with('success', $message);
+    }
+
+    /**
+     * Regenerate the public share token to revoke any previously shared link.
+     */
+    public function regenerateShareToken(Project $project): RedirectResponse
+    {
+        $project->update([
+            'is_public' => true,
+            'share_token' => Project::generateShareToken(),
+        ]);
+
+        return back()->with('success', 'Link publik baru berhasil dibuat. Link lama tidak lagi berlaku.');
+    }
+
     public function storeFolder(Request $request, Project $project): RedirectResponse
     {
         $validated = $request->validate([

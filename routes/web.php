@@ -6,8 +6,15 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\ProjectController;
+use App\Http\Controllers\PublicProjectController;
 use App\Http\Controllers\SearchController;
 use Illuminate\Support\Facades\Route;
+
+// Public Read-Only Shared Project Routes (No Login Required)
+Route::prefix('share/{token}')->name('public.projects.')->group(function () {
+    Route::get('/', [PublicProjectController::class, 'show'])->name('show');
+    Route::get('/docs/{documentSlug}', [PublicProjectController::class, 'showDocument'])->name('document');
+});
 
 // Guest Auth Routes
 Route::middleware('guest')->group(function () {
@@ -32,6 +39,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/projects/{project:slug}', [ProjectController::class, 'show'])->name('projects.show');
     Route::get('/projects/{project:slug}/edit', [ProjectController::class, 'edit'])->name('projects.edit');
     Route::put('/projects/{project:slug}', [ProjectController::class, 'update'])->name('projects.update');
+    Route::post('/projects/{project:slug}/share/toggle', [ProjectController::class, 'toggleShare'])->name('projects.share.toggle');
+    Route::post('/projects/{project:slug}/share/regenerate', [ProjectController::class, 'regenerateShareToken'])->name('projects.share.regenerate');
     Route::delete('/projects/{project:slug}', [ProjectController::class, 'destroy'])->name('projects.destroy');
     Route::post('/projects/{project:slug}/folders', [ProjectController::class, 'storeFolder'])->name('projects.folders.store');
 

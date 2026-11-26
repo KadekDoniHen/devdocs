@@ -19,7 +19,21 @@ class Project extends Model
         'description',
         'icon',
         'status',
+        'is_public',
+        'share_token',
     ];
+
+    /**
+     * Get the attributes that should be cast.
+     *
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'is_public' => 'boolean',
+        ];
+    }
 
     protected static function booted(): void
     {
@@ -53,5 +67,37 @@ class Project extends Model
     public function rootDocuments(): HasMany
     {
         return $this->hasMany(Document::class)->whereNull('folder_id')->orderBy('title');
+    }
+
+    /**
+     * Generate a unique share token for public access.
+     */
+    public static function generateShareToken(): string
+    {
+        do {
+            $token = Str::random(24);
+        } while (self::where('share_token', $token)->exists());
+
+        return $token;
+    }
+
+    /**
+     * Determine whether the project is publicly accessible.
+     */
+    public function isPubliclyAccessible(): bool
+    {
+        return $this->is_public && ! empty($this->share_token);
+    }
+
+    /**
+     * Get the public share URL if enabled.
+     */
+    public function publicShareUrl(): ?string
+    {
+        if (! $this->isPubliclyAccessible()) {
+            return null;
+        }
+
+        return route('public.projects.show', ['token' => $this->share_token]);
     }
 }
