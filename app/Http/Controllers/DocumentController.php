@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ActivityLog;
 use App\Models\Document;
 use App\Models\DocumentRevision;
 use App\Models\Folder;
@@ -19,16 +20,20 @@ class DocumentController extends Controller
 {
     public function create(Request $request): View
     {
-        $projects = Project::where('status', 'active')
-            ->with('folders')
+        $user = $request->user();
+
+        $projects = Project::accessibleBy($user)
+            ->where('status', 'active')
+            ->with(['folders', 'members'])
             ->orderBy('name')
-            ->get();
+            ->get()
+            ->filter(fn (Project $p) => $p->canEdit($user))
+            ->values();
 
         $selectedProject = null;
 
         if ($request->has('project_id')) {
-            $selectedProject = $projects->firstWhere('id', (int) $request->project_id)
-                ?? Project::with('folders')->find($request->project_id);
+            $selectedProject = $projects->firstWhere('id', (int) $request->project_id);
         } elseif ($projects->isNotEmpty()) {
             $selectedProject = $projects->first();
         }
@@ -65,6 +70,10 @@ class DocumentController extends Controller
 
         $project = Project::findOrFail($validated['project_id']);
 
+        if (! $project->canEdit($request->user())) {
+            abort(403, 'Anda tidak memiliki izin untuk menulis dokumen di proyek ini.');
+        }
+
         $slug = Str::slug($validated['title']);
         $originalSlug = $slug;
         $counter = 1;
@@ -98,16 +107,28 @@ class DocumentController extends Controller
             'created_at' => now(),
         ]);
 
+        ActivityLog::record(
+            $project->id,
+            Auth::id(),
+            'document.created',
+            Auth::user()->name." membuat dokumen '{$document->title}'"
+        );
+
         return redirect()->route('documents.edit', ['project' => $project->slug, 'document' => $document->slug])
             ->with('success', "Dokumen '{$document->title}' berhasil dibuat! Silakan lanjutkan mengedit.");
     }
 
-    public function show(Project $project, Document $document): View
+    public function show(Request $request, Project $project, Document $document): View
     {
-        $document->load(['author', 'lastEditor', 'apiEndpoints', 'folder', 'revisions.editor']);
+        if (! $project->canView($request->user())) {
+            abort(403, 'Anda tidak memiliki akses untuk membaca dokumen pada proyek ini.');
+        }
+
+        $document->load(['author', 'lastEditor', 'apiEndpoints', 'folder', 'revisions.editor', 'comments.user']);
 
         // Load project folder tree for sidebar + all folders for move modal
         $project->load([
+            'members',
             'rootFolders.children.documents',
             'rootFolders.documents',
             'rootDocuments',
@@ -124,6 +145,9 @@ class DocumentController extends Controller
      */
     public function move(Request $request, Project $project, Document $document): RedirectResponse
     {
+        if (! $project->canEdit($request->user())) {
+            abort(403, 'Anda tidak memiliki izin untuk memindahkan dokumen pada proyek ini.');
+        }
         $validated = $request->validate([
             'folder_id' => ['nullable', 'exists:folders,id'],
         ]);
@@ -149,8 +173,12 @@ class DocumentController extends Controller
             ->with('success', "Dokumen berhasil dipindahkan ke \"{$folderName}\".");
     }
 
-    public function edit(Project $project, Document $document): View
+    public function edit(Request $request, Project $project, Document $document): View
     {
+        if (! $project->canEdit($request->user())) {
+            abort(403, 'Anda tidak memiliki izin untuk mengedit dokumen pada proyek ini.');
+        }
+
         $document->load(['revisions.editor', 'apiEndpoints']);
         $folders = Folder::where('project_id', $project->id)->orderBy('name')->get();
 
@@ -159,6 +187,9 @@ class DocumentController extends Controller
 
     public function update(Request $request, Project $project, Document $document): RedirectResponse
     {
+        if (! $project->canEdit($request->user())) {
+            abort(403, 'Anda tidak memiliki izin untuk mengubah dokumen pada proyek ini.');
+        }
         $validated = $request->validate([
             'title' => ['required', 'string', 'max:250'],
             'summary' => ['nullable', 'string'],
@@ -208,6 +239,13 @@ class DocumentController extends Controller
             ]);
         });
 
+        ActivityLog::record(
+            $project->id,
+            Auth::id(),
+            'document.updated',
+            Auth::user()->name." memperbarui dokumen '{$document->title}' (v{$document->version})"
+        );
+
         return redirect()->route('documents.show', ['project' => $project->slug, 'document' => $document->slug])
             ->with('success', 'Dokumen berhasil diperbarui.');
     }
@@ -217,6 +255,12 @@ class DocumentController extends Controller
      */
     public function autosave(Request $request, Project $project, Document $document): JsonResponse
     {
+        if (! $project->canEdit($request->user())) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Anda tidak memiliki izin untuk mengedit dokumen pada proyek ini.',
+            ], 403);
+        }
         $validated = $request->validate([
             'title' => ['required', 'string', 'max:250'],
             'content_markdown' => ['nullable', 'string'],
@@ -254,6 +298,10 @@ class DocumentController extends Controller
 
     public function publish(Request $request, Project $project, Document $document): RedirectResponse
     {
+        if (! $project->canEdit($request->user())) {
+            abort(403, 'Anda tidak memiliki izin untuk mengubah status publikasi dokumen ini.');
+        }
+
         $newStatus = $document->status === 'published' ? 'draft' : 'published';
         $document->update([
             'status' => $newStatus,
@@ -261,13 +309,24 @@ class DocumentController extends Controller
             'last_editor_id' => Auth::id(),
         ]);
 
+        ActivityLog::record(
+            $project->id,
+            Auth::id(),
+            $newStatus === 'published' ? 'document.published' : 'document.unpublished',
+            Auth::user()->name.($newStatus === 'published' ? " mempublikasikan '{$document->title}'" : " mengembalikan '{$document->title}' ke Draft")
+        );
+
         $msg = $newStatus === 'published' ? 'Dokumen berhasil dipublikasikan.' : 'Dokumen dikembalikan ke status Draft.';
 
         return back()->with('success', $msg);
     }
 
-    public function revisions(Project $project, Document $document): View
+    public function revisions(Request $request, Project $project, Document $document): View
     {
+        if (! $project->canView($request->user())) {
+            abort(403, 'Anda tidak memiliki akses untuk melihat riwayat revisi dokumen ini.');
+        }
+
         $revisions = $document->revisions()->with('editor')->get();
 
         return view('documents.revisions', compact('project', 'document', 'revisions'));
@@ -275,6 +334,9 @@ class DocumentController extends Controller
 
     public function restoreRevision(Request $request, Project $project, Document $document, DocumentRevision $revision): RedirectResponse
     {
+        if (! $project->canEdit($request->user())) {
+            abort(403, 'Anda tidak memiliki izin untuk memulihkan revisi dokumen ini.');
+        }
         if ($revision->document_id !== $document->id) {
             abort(404);
         }
@@ -305,17 +367,32 @@ class DocumentController extends Controller
             ->with('success', "Dokumen berhasil dipulihkan ke Revisi #{$revision->revision_number}!");
     }
 
-    public function export(Project $project, Document $document, string $format = 'html'): View
+    public function export(Request $request, Project $project, Document $document, string $format = 'html'): View
     {
+        if (! $project->canView($request->user())) {
+            abort(403, 'Anda tidak memiliki akses untuk mengekspor dokumen ini.');
+        }
+
         $document->load(['author', 'apiEndpoints', 'folder']);
 
         return view('documents.export', compact('project', 'document', 'format'));
     }
 
-    public function destroy(Project $project, Document $document): RedirectResponse
+    public function destroy(Request $request, Project $project, Document $document): RedirectResponse
     {
+        if (! $project->canEdit($request->user())) {
+            abort(403, 'Anda tidak memiliki izin untuk menghapus dokumen pada proyek ini.');
+        }
+
         $title = $document->title;
         $document->delete(); // Soft delete
+
+        ActivityLog::record(
+            $project->id,
+            Auth::id(),
+            'document.deleted',
+            Auth::user()->name." menghapus dokumen '{$title}'"
+        );
 
         return redirect()->route('projects.show', $project->slug)
             ->with('success', "Dokumen '{$title}' berhasil dihapus.");

@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ActivityLog;
 use App\Models\Folder;
 use App\Models\Project;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -14,9 +16,11 @@ use Illuminate\View\View;
 
 class ProjectController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View
     {
-        $projects = Project::withCount(['documents', 'folders'])
+        $projects = Project::accessibleBy($request->user())
+            ->with(['owner', 'members'])
+            ->withCount(['documents', 'folders'])
             ->latest('updated_at')
             ->paginate(12);
 
@@ -37,7 +41,6 @@ class ProjectController extends Controller
         ]);
 
         $slug = Str::slug($validated['name']);
-        // Ensure slug uniqueness
         $originalSlug = $slug;
         $counter = 1;
         while (Project::where('slug', $slug)->exists()) {
@@ -54,13 +57,26 @@ class ProjectController extends Controller
             'status' => 'active',
         ]);
 
+        ActivityLog::record(
+            $project->id,
+            Auth::id(),
+            'project.created',
+            Auth::user()->name." membuat proyek '{$project->name}'"
+        );
+
         return redirect()->route('projects.show', $project->slug)
             ->with('success', "Proyek '{$project->name}' berhasil dibuat!");
     }
 
-    public function show(Project $project): View
+    public function show(Request $request, Project $project): View
     {
+        if (! $project->canView($request->user())) {
+            abort(403, 'Anda tidak memiliki akses ke proyek ini.');
+        }
+
         $project->load([
+            'owner',
+            'members',
             'rootFolders.children.documents',
             'rootFolders.documents',
             'rootDocuments',
@@ -72,16 +88,37 @@ class ProjectController extends Controller
             ->latest('updated_at')
             ->get();
 
-        return view('projects.show', compact('project', 'documents'));
+        $availableUsers = User::query()
+            ->where('id', '!=', $project->owner_id)
+            ->whereNotIn('id', $project->members->pluck('id'))
+            ->orderBy('name')
+            ->get();
+
+        $activityLogs = $project->activityLogs()
+            ->with('user')
+            ->take(8)
+            ->get();
+
+        return view('projects.show', compact('project', 'documents', 'availableUsers', 'activityLogs'));
     }
 
-    public function edit(Project $project): View
+    public function edit(Request $request, Project $project): View
     {
+        if (! $project->canManage($request->user())) {
+            abort(403, 'Anda tidak memiliki izin untuk mengubah pengaturan proyek ini.');
+        }
+
+        $project->load(['owner', 'members']);
+
         return view('projects.edit', compact('project'));
     }
 
     public function update(Request $request, Project $project): RedirectResponse
     {
+        if (! $project->canManage($request->user())) {
+            abort(403, 'Anda tidak memiliki izin untuk memperbarui proyek ini.');
+        }
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:200'],
             'description' => ['nullable', 'string'],
@@ -91,6 +128,13 @@ class ProjectController extends Controller
 
         $project->update($validated);
 
+        ActivityLog::record(
+            $project->id,
+            Auth::id(),
+            'project.updated',
+            Auth::user()->name." memperbarui detail proyek '{$project->name}'"
+        );
+
         return redirect()->route('projects.show', $project->slug)
             ->with('success', 'Detail proyek berhasil diperbarui.');
     }
@@ -98,8 +142,12 @@ class ProjectController extends Controller
     /**
      * Enable or disable public read-only sharing for a project.
      */
-    public function toggleShare(Project $project): RedirectResponse
+    public function toggleShare(Request $request, Project $project): RedirectResponse
     {
+        if (! $project->canManage($request->user())) {
+            abort(403, 'Anda tidak memiliki izin untuk mengatur akses publik proyek ini.');
+        }
+
         $willBePublic = ! $project->is_public;
 
         $updateData = [
@@ -112,6 +160,13 @@ class ProjectController extends Controller
 
         $project->update($updateData);
 
+        ActivityLog::record(
+            $project->id,
+            Auth::id(),
+            $willBePublic ? 'project.public_enabled' : 'project.public_disabled',
+            Auth::user()->name.($willBePublic ? ' mengaktifkan akses publik proyek' : ' menonaktifkan akses publik proyek')
+        );
+
         $message = $willBePublic
             ? 'Akses publik (hanya lihat) berhasil diaktifkan.'
             : 'Akses publik berhasil dinonaktifkan. Proyek kini kembali privat.';
@@ -122,24 +177,38 @@ class ProjectController extends Controller
     /**
      * Regenerate the public share token to revoke any previously shared link.
      */
-    public function regenerateShareToken(Project $project): RedirectResponse
+    public function regenerateShareToken(Request $request, Project $project): RedirectResponse
     {
+        if (! $project->canManage($request->user())) {
+            abort(403, 'Anda tidak memiliki izin untuk mereset link publik proyek ini.');
+        }
+
         $project->update([
             'is_public' => true,
             'share_token' => Project::generateShareToken(),
         ]);
+
+        ActivityLog::record(
+            $project->id,
+            Auth::id(),
+            'project.public_regenerated',
+            Auth::user()->name.' mereset link publik proyek'
+        );
 
         return back()->with('success', 'Link publik baru berhasil dibuat. Link lama tidak lagi berlaku.');
     }
 
     public function storeFolder(Request $request, Project $project): RedirectResponse
     {
+        if (! $project->canEdit($request->user())) {
+            abort(403, 'Anda tidak memiliki izin untuk menambah folder pada proyek ini.');
+        }
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:200'],
             'parent_id' => ['nullable', 'exists:folders,id'],
         ]);
 
-        // Position at bottom
         $maxPos = Folder::where('project_id', $project->id)
             ->where('parent_id', $validated['parent_id'] ?? null)
             ->max('position') ?? 0;
@@ -151,12 +220,23 @@ class ProjectController extends Controller
             'position' => $maxPos + 1,
         ]);
 
+        ActivityLog::record(
+            $project->id,
+            Auth::id(),
+            'folder.created',
+            Auth::user()->name." menambahkan folder '{$validated['name']}'"
+        );
+
         return redirect()->route('projects.show', $project->slug)
             ->with('success', "Folder '{$validated['name']}' berhasil dibuat.");
     }
 
-    public function destroyFolder(Project $project, Folder $folder): RedirectResponse
+    public function destroyFolder(Request $request, Project $project, Folder $folder): RedirectResponse
     {
+        if (! $project->canEdit($request->user())) {
+            abort(403, 'Anda tidak memiliki izin untuk menghapus folder pada proyek ini.');
+        }
+
         if ($folder->project_id !== $project->id) {
             abort(404);
         }
@@ -164,15 +244,26 @@ class ProjectController extends Controller
         $name = $folder->name;
         $folder->delete();
 
+        ActivityLog::record(
+            $project->id,
+            Auth::id(),
+            'folder.deleted',
+            Auth::user()->name." menghapus folder '{$name}'"
+        );
+
         return redirect()->route('projects.show', $project->slug)
             ->with('success', "Folder '{$name}' berhasil dihapus.");
     }
 
-    public function destroy(Project $project): RedirectResponse
+    public function destroy(Request $request, Project $project): RedirectResponse
     {
+        if (! $project->canManage($request->user())) {
+            abort(403, 'Anda tidak memiliki izin untuk menghapus proyek ini.');
+        }
+
         $name = $project->name;
 
-        DB::transaction(function () use ($project) {
+        DB::transaction(function () use ($project): void {
             foreach ($project->documents()->withTrashed()->get() as $doc) {
                 foreach ($doc->attachments as $attachment) {
                     if (Storage::disk('public')->exists($attachment->storage_path)) {
@@ -182,6 +273,8 @@ class ProjectController extends Controller
             }
             $project->delete();
         });
+
+        ActivityLog::record(null, Auth::id(), 'project.deleted', Auth::user()->name." menghapus proyek '{$name}'");
 
         return redirect()->route('projects.index')
             ->with('success', "Proyek '{$name}' berhasil dihapus.");

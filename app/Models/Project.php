@@ -2,9 +2,11 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
@@ -67,6 +69,80 @@ class Project extends Model
     public function rootDocuments(): HasMany
     {
         return $this->hasMany(Document::class)->whereNull('folder_id')->orderBy('title');
+    }
+
+    public function members(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'project_members')
+            ->withPivot('permission')
+            ->withTimestamps()
+            ->orderBy('name');
+    }
+
+    public function activityLogs(): HasMany
+    {
+        return $this->hasMany(ActivityLog::class)->latest();
+    }
+
+    /**
+     * Scope projects visible to the given user (owner, member, or admin).
+     */
+    public function scopeAccessibleBy(Builder $query, User $user): Builder
+    {
+        if ($user->isAdmin()) {
+            return $query;
+        }
+
+        return $query->where(function (Builder $q) use ($user): void {
+            $q->where('owner_id', $user->id)
+                ->orWhereHas('members', function (Builder $m) use ($user): void {
+                    $m->where('users.id', $user->id);
+                });
+        });
+    }
+
+    /**
+     * Determine the effective role/permission of a user on this project.
+     */
+    public function roleFor(User $user): ?string
+    {
+        if ($user->isAdmin() || $this->owner_id === $user->id) {
+            return 'owner';
+        }
+
+        if ($this->relationLoaded('members')) {
+            $member = $this->members->firstWhere('id', $user->id);
+
+            return $member?->pivot?->permission;
+        }
+
+        $member = $this->members()->where('users.id', $user->id)->first();
+
+        return $member?->pivot?->permission;
+    }
+
+    /**
+     * Check if the user can view this project and its documents.
+     */
+    public function canView(User $user): bool
+    {
+        return $this->roleFor($user) !== null;
+    }
+
+    /**
+     * Check if the user can create, edit, move, publish, or delete documents and folders.
+     */
+    public function canEdit(User $user): bool
+    {
+        return in_array($this->roleFor($user), ['owner', 'manager', 'editor'], true);
+    }
+
+    /**
+     * Check if the user can manage project settings, members, sharing, or delete the project.
+     */
+    public function canManage(User $user): bool
+    {
+        return in_array($this->roleFor($user), ['owner', 'manager'], true);
     }
 
     /**

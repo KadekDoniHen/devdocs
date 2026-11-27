@@ -32,6 +32,7 @@ class AppServiceProvider extends ServiceProvider
             $sidebarProjects = collect();
             if (Auth::check() && Schema::hasTable('projects')) {
                 $sidebarProjects = Project::query()
+                    ->accessibleBy(Auth::user())
                     ->select(['id', 'name', 'slug', 'status'])
                     ->withCount('documents')
                     ->orderBy('name')

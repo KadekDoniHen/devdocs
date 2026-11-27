@@ -165,9 +165,11 @@
                                     {{ ucfirst($doc->status) }}
                                 </span>
                                 <span class="text-xs text-slate-400 dark:text-slate-500 hidden sm:inline">{{ $doc->updated_at->diffForHumans() }}</span>
-                                <a href="{{ route('documents.edit', ['project' => $doc->project->slug, 'document' => $doc->slug]) }}" class="px-2.5 py-1 text-xs font-medium text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition">
-                                    Edit
-                                </a>
+                                @if ($doc->project->canEdit(Auth::user()))
+                                    <a href="{{ route('documents.edit', ['project' => $doc->project->slug, 'document' => $doc->slug]) }}" class="px-2.5 py-1 text-xs font-medium text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition">
+                                        Edit
+                                    </a>
+                                @endif
                             </div>
                         </div>
                     @endforeach
@@ -175,6 +177,36 @@
             @endif
         </div>
     </div>
+
+    <!-- Team Activity Feed -->
+    @if (isset($recentActivities) && $recentActivities->isNotEmpty())
+        <div class="mt-10">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-bold text-slate-900 dark:text-white">Aktivitas Tim Terbaru</h2>
+            </div>
+
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xs divide-y divide-slate-100 dark:divide-slate-800 overflow-hidden">
+                @foreach ($recentActivities as $activity)
+                    <div class="px-4 py-3 flex items-center justify-between gap-4 text-xs">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <span class="w-7 h-7 rounded-lg bg-indigo-50 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 font-bold text-[10px] flex items-center justify-center shrink-0">
+                                {{ $activity->user ? strtoupper(substr($activity->user->name, 0, 2)) : 'SY' }}
+                            </span>
+                            <div class="min-w-0">
+                                <p class="text-slate-700 dark:text-slate-200 truncate">{{ $activity->description }}</p>
+                                @if ($activity->project)
+                                    <a href="{{ route('projects.show', $activity->project->slug) }}" class="text-[11px] font-medium text-indigo-600 dark:text-indigo-400 hover:underline">
+                                        {{ $activity->project->name }}
+                                    </a>
+                                @endif
+                            </div>
+                        </div>
+                        <span class="text-[11px] text-slate-400 dark:text-slate-500 shrink-0">{{ $activity->created_at->diffForHumans() }}</span>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+    @endif
 
 </div>
 @endsection

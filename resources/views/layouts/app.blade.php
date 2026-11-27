@@ -111,6 +111,20 @@
                     </svg>
                     <span>Pencarian Global</span>
                 </a>
+
+                <!-- Manajemen Tim (Khusus Admin) -->
+                @if (Auth::check() && Auth::user()->isAdmin())
+                    @php $isUsers = request()->routeIs('users.*'); @endphp
+                    <a href="{{ route('users.index') }}" class="relative flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition {{ $isUsers ? 'bg-indigo-50 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 font-semibold shadow-2xs' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/70 hover:text-slate-900 dark:hover:text-slate-100' }}">
+                        @if($isUsers)
+                            <span class="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r-full bg-indigo-600 dark:bg-indigo-400"></span>
+                        @endif
+                        <svg class="w-4 h-4 shrink-0 {{ $isUsers ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 dark:text-slate-500' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                        </svg>
+                        <span>Manajemen Tim</span>
+                    </a>
+                @endif
             </div>
         </div>
 
@@ -223,6 +237,8 @@
                             Pencarian Dokumen
                         @elseif(request()->routeIs('account.*'))
                             Pengaturan Akun
+                        @elseif(request()->routeIs('users.*'))
+                            Manajemen Tim
                         @else
                             DevDocs
                         @endif

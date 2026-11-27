@@ -87,6 +87,11 @@ class Document extends Model
         return $this->hasMany(Attachment::class);
     }
 
+    public function comments(): HasMany
+    {
+        return $this->hasMany(DocumentComment::class)->with('user')->oldest();
+    }
+
     public function isPublished(): bool
     {
         return $this->status === 'published';
