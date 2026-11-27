@@ -293,4 +293,59 @@ class TeamCollaborationTest extends TestCase
 
         $this->assertDatabaseMissing('document_comments', ['id' => $comment->id]);
     }
+
+    public function test_deleting_folder_moves_documents_to_root_and_handles_missing_folder_gracefully(): void
+    {
+        $owner = User::factory()->create(['role' => 'member']);
+        $project = Project::create([
+            'owner_id' => $owner->id,
+            'name' => 'Folder Test Project',
+            'slug' => 'folder-test-project',
+            'status' => 'active',
+        ]);
+
+        $parentFolder = \App\Models\Folder::create([
+            'project_id' => $project->id,
+            'name' => 'Parent Folder',
+            'position' => 1,
+        ]);
+
+        $subFolder = \App\Models\Folder::create([
+            'project_id' => $project->id,
+            'parent_id' => $parentFolder->id,
+            'name' => 'Sub Folder',
+            'position' => 1,
+        ]);
+
+        $doc = Document::create([
+            'project_id' => $project->id,
+            'folder_id' => $subFolder->id,
+            'author_id' => $owner->id,
+            'last_editor_id' => $owner->id,
+            'title' => 'Nested Doc',
+            'slug' => 'nested-doc',
+            'content_markdown' => '# Nested',
+            'status' => 'published',
+            'version' => 1,
+        ]);
+
+        // Deleting parent folder moves nested doc to root and removes subfolders cleanly
+        $this->actingAs($owner)
+            ->delete(route('projects.folders.destroy', ['project' => $project->slug, 'folder' => $parentFolder->id]))
+            ->assertRedirect(route('projects.show', $project->slug));
+
+        $this->assertDatabaseMissing('folders', ['id' => $parentFolder->id]);
+        $this->assertDatabaseMissing('folders', ['id' => $subFolder->id]);
+        $this->assertNull($doc->fresh()->folder_id);
+
+        // Deleting an already-deleted folder redirects cleanly instead of 404
+        $this->actingAs($owner)
+            ->delete(route('projects.folders.destroy', ['project' => $project->slug, 'folder' => $parentFolder->id]))
+            ->assertRedirect(route('projects.show', $project->slug));
+
+        // Accidental GET on folder URL redirects cleanly to project page instead of 404
+        $this->actingAs($owner)
+            ->get("/projects/{$project->slug}/folders/{$parentFolder->id}")
+            ->assertRedirect(route('projects.show', $project->slug));
+    }
 }

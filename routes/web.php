@@ -49,6 +49,10 @@ Route::middleware('auth')->group(function () {
     Route::delete('/projects/{project:slug}/members/{user}', [ProjectMemberController::class, 'destroy'])->name('projects.members.destroy');
     Route::delete('/projects/{project:slug}', [ProjectController::class, 'destroy'])->name('projects.destroy');
     Route::post('/projects/{project:slug}/folders', [ProjectController::class, 'storeFolder'])->name('projects.folders.store');
+    Route::get('/projects/{project:slug}/folders/{folder}', function (\App\Models\Project $project) {
+        return redirect()->route('projects.show', $project->slug);
+    });
+    Route::delete('/projects/{project:slug}/folders/{folder}', [ProjectController::class, 'destroyFolder'])->name('projects.folders.destroy');
 
     // Documents
     Route::get('/documents/create', [DocumentController::class, 'create'])->name('documents.create');
@@ -56,8 +60,6 @@ Route::middleware('auth')->group(function () {
 
     // Project-scoped nested resources (prevents cross-project slug/ID access)
     Route::scopeBindings()->group(function () {
-        Route::delete('/projects/{project:slug}/folders/{folder}', [ProjectController::class, 'destroyFolder'])->name('projects.folders.destroy');
-
         Route::get('/projects/{project:slug}/docs/{document:slug}', [DocumentController::class, 'show'])->name('documents.show');
         Route::get('/projects/{project:slug}/docs/{document:slug}/edit', [DocumentController::class, 'edit'])->name('documents.edit');
         Route::put('/projects/{project:slug}/docs/{document:slug}', [DocumentController::class, 'update'])->name('documents.update');

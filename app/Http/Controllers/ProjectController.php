@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ActivityLog;
+use App\Models\Document;
 use App\Models\Folder;
 use App\Models\Project;
 use App\Models\User;
@@ -231,18 +232,39 @@ class ProjectController extends Controller
             ->with('success', "Folder '{$validated['name']}' berhasil dibuat.");
     }
 
-    public function destroyFolder(Request $request, Project $project, Folder $folder): RedirectResponse
+    public function destroyFolder(Request $request, Project $project, int $folder): RedirectResponse
     {
         if (! $project->canEdit($request->user())) {
             abort(403, 'Anda tidak memiliki izin untuk menghapus folder pada proyek ini.');
         }
 
-        if ($folder->project_id !== $project->id) {
-            abort(404);
+        $folderModel = Folder::where('project_id', $project->id)->find($folder);
+
+        if (! $folderModel) {
+            return redirect()->route('projects.show', $project->slug)
+                ->with('success', 'Folder sudah dihapus.');
         }
 
-        $name = $folder->name;
-        $folder->delete();
+        $name = $folderModel->name;
+
+        DB::transaction(function () use ($project, $folderModel): void {
+            $childFolderIds = Folder::where('project_id', $project->id)
+                ->where('parent_id', $folderModel->id)
+                ->pluck('id')
+                ->all();
+
+            $affectedFolderIds = array_merge([$folderModel->id], $childFolderIds);
+
+            Document::where('project_id', $project->id)
+                ->whereIn('folder_id', $affectedFolderIds)
+                ->update(['folder_id' => null]);
+
+            if (! empty($childFolderIds)) {
+                Folder::whereIn('id', $childFolderIds)->delete();
+            }
+
+            $folderModel->delete();
+        });
 
         ActivityLog::record(
             $project->id,

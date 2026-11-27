@@ -17,6 +17,10 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        if (User::exists() || Project::exists()) {
+            return;
+        }
+
         // 1. Admin User
         $admin = User::firstOrCreate(
             ['email' => 'admin@devdocs.local'],

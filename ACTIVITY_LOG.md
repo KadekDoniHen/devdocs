@@ -36,6 +36,14 @@ File ini mencatat riwayat perubahan kode, penambahan fitur, perbaikan bug, dan h
 - Memperbarui fallback `config/database.php` (`pgsql.database`) agar membaca `DB_DATABASE` atau `DB_NAME`.
 - Memperketat `.gitignore` agar seluruh `.env` lokal, file SQLite lokal, cache/vendor/build, dan konfigurasi editor/AI lokal (`/.claude`, `/.gemini`, `/.agent`, `/.agents`, `/.mcp.json`, `/boost.json`) tidak ikut ter-push.
 
+### Perbaikan Bug Hapus Folder & Isolasi Database Testing
+- Memperbaiki bug `404 Not Found` saat menghapus folder di production (`routes/web.php`, `ProjectController::destroyFolder`, `AppServiceProvider.php`):
+  - Mengaktifkan `URL::forceScheme('https')` juga ketika header proxy `X-Forwarded-Proto: https` terdeteksi.
+  - Memindahkan route `DELETE /projects/{project:slug}/folders/{folder}` keluar dari `scopeBindings()` dan menangani folder yang sudah terhapus agar redirect kembali ke halaman proyek tanpa `404`.
+  - Menambahkan fallback redirect `GET /projects/{project:slug}/folders/{folder}` ke halaman proyek dan memastikan dokumen di dalam folder & subfolder dipindahkan ke root (`folder_id = null`) dalam transaksi database.
+- Mengamankan `DatabaseSeeder.php` agar tidak membuat ulang data/folder demo apabila database sudah memiliki user atau proyek.
+- Mengonfigurasi `phpunit.xml` ke SQLite in-memory (`:memory:`) dan memperbarui `DevDocsTest.php` agar seluruh automated testing selalu berjalan terisolasi di RAM tanpa menyentuh database lokal maupun database live.
+
 ---
 
 ## [2026-11-26] Public Project Sharing, Login Security & PaaS Deployment
